@@ -1,11 +1,34 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useRef, useState } from "react";
+import ForensicMetricsGrid from "../components/ForensicMetricsGrid";
+import FraudAdvisoryPanel from "../components/FraudAdvisoryPanel";
+import ForensicIndicatorList from "../components/ForensicIndicatorList";
 
 type AnalysisResult = {
   filename?: string;
   status?: string;
   fake_probability?: number;
+  confidence_score?: number;
+  risk_level?: string;
+  indicators?: string[];
+  breakdown?: {
+    spectral_consistency?: number;
+    pitch_naturalness?: number;
+    vocoder_artifact_score?: number;
+  };
+  fraud_prevention?: {
+    sha256_hash?: string;
+    impersonation_threat_score?: number;
+    threat_category?: string;
+    requires_human_escalation?: boolean;
+    advisory_actions?: {
+      action_type: string;
+      description: string;
+      severity: string;
+    }[];
+  };
+  sha256_hash?: string;
   [key: string]: unknown;
 };
 
@@ -181,7 +204,7 @@ export default function Home() {
               <strong>Listening for signals…</strong>
               <p>Your audio is being sent to the backend for analysis.</p>
             </div>
-          ) : (
+          ) : result ? (
             <div className="report-content">
               <div className="report-file"><span className="mini-audio">♫</span><div><strong>{result.filename || file?.name || "Audio file"}</strong><span>Server response received</span></div></div>
               {probability !== null ? (
@@ -192,9 +215,22 @@ export default function Home() {
               ) : (
                 <div className="response-note"><strong>Analysis status</strong><span>{result.status || "The API returned a result."}</span></div>
               )}
+
+              <ForensicMetricsGrid breakdown={result.breakdown} />
+
+              <ForensicIndicatorList
+                indicators={result.indicators}
+                riskLevel={result.risk_level}
+              />
+
+              <FraudAdvisoryPanel
+                fraudData={result.fraud_prevention}
+                fakeProbability={result.fake_probability}
+              />
+
               <details className="raw-response"><summary>View full API response</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
             </div>
-          )}
+          ) : null}
           <div className="result-footnote"><span className="info-mark">i</span> Results depend on the analysis model and should not be treated as definitive proof.</div>
         </aside>
       </section>
