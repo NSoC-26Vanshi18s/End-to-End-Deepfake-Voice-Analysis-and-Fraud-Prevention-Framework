@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useRef, useState } from "react";
+import AudioPlayer from "../components/AudioPlayer";
 
 type AnalysisResult = {
   filename?: string;
@@ -151,6 +152,8 @@ export default function Home() {
             )}
           </div>
 
+          {file && <AudioPlayer file={file} />}
+
           {error && <p className="error-message" role="alert"><span aria-hidden="true">!</span>{error}</p>}
 
           <div className="upload-footer">
@@ -181,7 +184,7 @@ export default function Home() {
               <strong>Listening for signals…</strong>
               <p>Your audio is being sent to the backend for analysis.</p>
             </div>
-          ) : (
+          ) : result ? (
             <div className="report-content">
               <div className="report-file"><span className="mini-audio">♫</span><div><strong>{result.filename || file?.name || "Audio file"}</strong><span>Server response received</span></div></div>
               {probability !== null ? (
@@ -194,7 +197,7 @@ export default function Home() {
               )}
               <details className="raw-response"><summary>View full API response</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
             </div>
-          )}
+          ) : null}
           <div className="result-footnote"><span className="info-mark">i</span> Results depend on the analysis model and should not be treated as definitive proof.</div>
         </aside>
       </section>
