@@ -1,6 +1,8 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useRef, useState } from "react";
+import LiveVoiceRecorder from "../components/LiveVoiceRecorder";
+import SampleAudioPlayground from "../components/SampleAudioPlayground";
 
 type AnalysisResult = {
   filename?: string;
@@ -8,6 +10,8 @@ type AnalysisResult = {
   fake_probability?: number;
   [key: string]: unknown;
 };
+
+type InputMode = "upload" | "record" | "samples";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
@@ -24,6 +28,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [activeTab, setActiveTab] = useState<InputMode>("upload");
 
   function selectFile(candidate?: File) {
     setError("");
@@ -53,15 +58,13 @@ export default function Home() {
     selectFile(event.dataTransfer.files?.[0]);
   }
 
-  async function analyze(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!file || loading) return;
+  async function triggerAnalysis(fileToAnalyze: File) {
     setLoading(true);
     setError("");
     setResult(null);
 
     const body = new FormData();
-    body.append("file", file);
+    body.append("file", fileToAnalyze);
 
     try {
       const response = await fetch(`${API_URL}/api/v1/analyze`, {
@@ -90,6 +93,22 @@ export default function Home() {
     }
   }
 
+  async function handleUploadSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!file || loading) return;
+    await triggerAnalysis(file);
+  }
+
+  const handleSampleSelected = (selectedFile: File) => {
+    setFile(selectedFile);
+    triggerAnalysis(selectedFile);
+  };
+
+  const handleLiveRecorded = (recordedFile: File) => {
+    setFile(recordedFile);
+    triggerAnalysis(recordedFile);
+  };
+
   const probability = typeof result?.fake_probability === "number" ? result.fake_probability : null;
 
   return (
@@ -105,61 +124,101 @@ export default function Home() {
       <section className="hero">
         <p className="eyebrow">DEEPFAKE VOICE DETECTION</p>
         <h1>Is this voice <span>really real?</span></h1>
-        <p className="hero-copy">Upload an audio recording to check it for signs of synthetic or manipulated speech.</p>
+        <p className="hero-copy">Upload, record, or test an audio sample to check it for signs of synthetic voice fraud.</p>
       </section>
 
       <section className="workspace" aria-label="Audio analysis">
-        <form className="upload-card" onSubmit={analyze}>
+        <div className="upload-card">
           <div className="card-heading">
             <div>
-              <p className="step-label">01 <span>/ UPLOAD</span></p>
-              <h2>Choose an audio file</h2>
+              <p className="step-label">01 <span>/ SOURCE SELECTION</span></p>
+              <h2>Select audio source</h2>
             </div>
-            <span className="file-type">WAV · MAX 25 MB</span>
+            <div className="input-mode-tabs" role="tablist">
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "upload" ? "tab-active" : ""}`}
+                onClick={() => setActiveTab("upload")}
+              >
+                Upload
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "record" ? "tab-active" : ""}`}
+                onClick={() => setActiveTab("record")}
+              >
+                Record
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "samples" ? "tab-active" : ""}`}
+                onClick={() => setActiveTab("samples")}
+              >
+                Samples
+              </button>
+            </div>
           </div>
 
-          <div
-            className={`dropzone ${dragging ? "dropzone-active" : ""} ${file ? "dropzone-selected" : ""}`}
-            onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
-          >
-            <input
-              ref={inputRef}
-              className="visually-hidden"
-              type="file"
-              accept=".wav,.wave,audio/wav,audio/wave"
-              onChange={onInputChange}
-              aria-label="Choose WAV audio file"
+          {activeTab === "upload" && (
+            <form onSubmit={handleUploadSubmit}>
+              <div
+                className={`dropzone ${dragging ? "dropzone-active" : ""} ${file ? "dropzone-selected" : ""}`}
+                onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={onDrop}
+              >
+                <input
+                  ref={inputRef}
+                  className="visually-hidden"
+                  type="file"
+                  accept=".wav,.wave,audio/wav,audio/wave"
+                  onChange={onInputChange}
+                  aria-label="Choose WAV audio file"
+                />
+                {file ? (
+                  <>
+                    <div className="audio-icon selected-icon" aria-hidden="true">♫</div>
+                    <div className="selected-file">
+                      <strong>{file.name}</strong>
+                      <span>{formatBytes(file.size)} · Ready to analyze</span>
+                    </div>
+                    <button className="change-file" type="button" onClick={() => inputRef.current?.click()}>Change</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="audio-icon" aria-hidden="true">↑</div>
+                    <strong className="drop-title">Drop your audio file here</strong>
+                    <span className="drop-subtitle">or browse files from your device</span>
+                    <button className="browse-button" type="button" onClick={() => inputRef.current?.click()}>Browse files</button>
+                  </>
+                )}
+              </div>
+
+              {error && <p className="error-message" role="alert"><span aria-hidden="true">!</span>{error}</p>}
+
+              <div className="upload-footer">
+                <p><span className="lock-icon" aria-hidden="true">◇</span> Audio is sent to your configured analysis server.</p>
+                <button className="analyze-button" type="submit" disabled={!file || loading}>
+                  {loading ? <><span className="spinner" /> Analyzing audio…</> : <>Analyze audio <span aria-hidden="true">→</span></>}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === "record" && (
+            <LiveVoiceRecorder
+              onRecorded={handleLiveRecorded}
+              disabled={loading}
             />
-            {file ? (
-              <>
-                <div className="audio-icon selected-icon" aria-hidden="true">♫</div>
-                <div className="selected-file">
-                  <strong>{file.name}</strong>
-                  <span>{formatBytes(file.size)} · Ready to analyze</span>
-                </div>
-                <button className="change-file" type="button" onClick={() => inputRef.current?.click()}>Change</button>
-              </>
-            ) : (
-              <>
-                <div className="audio-icon" aria-hidden="true">↑</div>
-                <strong className="drop-title">Drop your audio file here</strong>
-                <span className="drop-subtitle">or browse files from your device</span>
-                <button className="browse-button" type="button" onClick={() => inputRef.current?.click()}>Browse files</button>
-              </>
-            )}
-          </div>
+          )}
 
-          {error && <p className="error-message" role="alert"><span aria-hidden="true">!</span>{error}</p>}
-
-          <div className="upload-footer">
-            <p><span className="lock-icon" aria-hidden="true">◇</span> Audio is sent to your configured analysis server.</p>
-            <button className="analyze-button" type="submit" disabled={!file || loading}>
-              {loading ? <><span className="spinner" /> Analyzing audio…</> : <>Analyze audio <span aria-hidden="true">→</span></>}
-            </button>
-          </div>
-        </form>
+          {activeTab === "samples" && (
+            <SampleAudioPlayground
+              onSelectSample={handleSampleSelected}
+              disabled={loading}
+            />
+          )}
+        </div>
 
         <aside className="result-card" aria-live="polite">
           <div className="card-heading">
@@ -173,15 +232,15 @@ export default function Home() {
             <div className="empty-result">
               <div className="report-graphic" aria-hidden="true"><span>〰</span><span>〰</span><span>〰</span></div>
               <strong>Your report will appear here</strong>
-              <p>Choose a WAV file and run the analysis to see the response from the detection API.</p>
+              <p>Choose or record a WAV sample to inspect its forensic authenticity metrics.</p>
             </div>
           ) : loading ? (
             <div className="empty-result">
               <div className="loading-graphic"><span /><span /><span /><span /><span /></div>
               <strong>Listening for signals…</strong>
-              <p>Your audio is being sent to the backend for analysis.</p>
+              <p>Audio waveform is being evaluated by the detection model.</p>
             </div>
-          ) : (
+          ) : result ? (
             <div className="report-content">
               <div className="report-file"><span className="mini-audio">♫</span><div><strong>{result.filename || file?.name || "Audio file"}</strong><span>Server response received</span></div></div>
               {probability !== null ? (
@@ -194,7 +253,7 @@ export default function Home() {
               )}
               <details className="raw-response"><summary>View full API response</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
             </div>
-          )}
+          ) : null}
           <div className="result-footnote"><span className="info-mark">i</span> Results depend on the analysis model and should not be treated as definitive proof.</div>
         </aside>
       </section>
