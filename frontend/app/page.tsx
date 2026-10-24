@@ -1,6 +1,10 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useRef, useState } from "react";
+import Navbar from "../components/Navbar";
+import ScanHistoryDrawer from "../components/ScanHistoryDrawer";
+import ExportReportModal from "../components/ExportReportModal";
+import { useScanHistory, ScanHistoryItem } from "../hooks/useScanHistory";
 
 type AnalysisResult = {
   filename?: string;
@@ -24,6 +28,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+
+  const { history, saveItem, removeItem, clearHistory } = useScanHistory();
 
   function selectFile(candidate?: File) {
     setError("");
@@ -76,7 +85,18 @@ export default function Home() {
       if (!payload || typeof payload !== "object") {
         throw new Error("The server returned an unexpected response.");
       }
-      setResult(payload as AnalysisResult);
+
+      const res = payload as AnalysisResult;
+      setResult(res);
+
+      // Save to audit history
+      saveItem({
+        filename: res.filename || file.name,
+        fake_probability: typeof res.fake_probability === "number" ? res.fake_probability : 0.0,
+        risk_level: (typeof res.risk_level === "string" ? res.risk_level : "ANALYZED"),
+        status: (typeof res.status === "string" ? res.status : "completed"),
+        details: res,
+      });
     } catch (caught) {
       setError(
         caught instanceof TypeError
@@ -90,17 +110,26 @@ export default function Home() {
     }
   }
 
+  const handleSelectHistoryScan = (item: ScanHistoryItem) => {
+    if (item.details) {
+      setResult(item.details as AnalysisResult);
+    } else {
+      setResult({
+        filename: item.filename,
+        fake_probability: item.fake_probability,
+        status: item.status,
+      });
+    }
+  };
+
   const probability = typeof result?.fake_probability === "number" ? result.fake_probability : null;
 
   return (
     <main className="analysis-shell">
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="VoxShield home">
-          <span className="brand-mark" aria-hidden="true">V</span>
-          <span>VoxShield<span className="brand-dot">.</span></span>
-        </a>
-        <span className="topbar-note"><span className="status-dot" /> Audio integrity analysis</span>
-      </header>
+      <Navbar
+        historyCount={history.length}
+        onOpenHistory={() => setIsHistoryOpen(true)}
+      />
 
       <section className="hero">
         <p className="eyebrow">DEEPFAKE VOICE DETECTION</p>
@@ -181,9 +210,24 @@ export default function Home() {
               <strong>Listening for signals…</strong>
               <p>Your audio is being sent to the backend for analysis.</p>
             </div>
-          ) : (
+          ) : result ? (
             <div className="report-content">
-              <div className="report-file"><span className="mini-audio">♫</span><div><strong>{result.filename || file?.name || "Audio file"}</strong><span>Server response received</span></div></div>
+              <div className="report-file">
+                <span className="mini-audio">♫</span>
+                <div>
+                  <strong>{result.filename || file?.name || "Audio file"}</strong>
+                  <span>Server response received</span>
+                </div>
+                <button
+                  type="button"
+                  className="export-trigger-btn"
+                  onClick={() => setIsExportOpen(true)}
+                  aria-label="Export forensic report"
+                >
+                  Export Case ↓
+                </button>
+              </div>
+
               {probability !== null ? (
                 <div className="probability-block">
                   <div className="probability-top"><span>Fake voice probability</span><strong>{(probability * 100).toFixed(1)}%</strong></div>
@@ -192,14 +236,32 @@ export default function Home() {
               ) : (
                 <div className="response-note"><strong>Analysis status</strong><span>{result.status || "The API returned a result."}</span></div>
               )}
+
               <details className="raw-response"><summary>View full API response</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
             </div>
-          )}
+          ) : null}
           <div className="result-footnote"><span className="info-mark">i</span> Results depend on the analysis model and should not be treated as definitive proof.</div>
         </aside>
       </section>
 
       <footer className="page-footer"><span>VOXSHIELD · AUDIO FORENSICS</span><span>Supported format: WAV / WAVE</span></footer>
+
+      <ScanHistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        history={history}
+        onSelectScan={handleSelectHistoryScan}
+        onClearHistory={clearHistory}
+        onRemoveItem={removeItem}
+      />
+
+      {result && (
+        <ExportReportModal
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          reportData={result as Record<string, unknown>}
+        />
+      )}
     </main>
   );
 }

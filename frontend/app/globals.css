@@ -70,5 +70,49 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .response-note { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; padding: 14px; border: 1px solid #283744; border-radius: 10px; color: #a4ebc7; background: #0a1016; font-size: 12px; }.response-note span { color: #c3ced8; }
 .raw-response { margin-top: 18px; color: #8c9ba8; font-size: 11px; }.raw-response summary { cursor: pointer; }.raw-response pre { max-height: 160px; overflow: auto; padding: 12px; border-radius: 8px; background: #080d12; color: #a8d8c1; font-size: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .page-footer { display: flex; justify-content: space-between; gap: 12px; max-width: 1120px; margin: 38px auto 0; padding: 20px 0 28px; border-top: 1px solid #ffffff12; color: #52606d; font-size: 9px; letter-spacing: .12em; }
+.topbar-actions { display: flex; align-items: center; gap: 14px; }
+.history-trigger-btn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: 1px solid #334553; border-radius: 7px; background: #131c24; color: #d0dbe5; font-size: 11px; font-weight: 650; transition: border-color .15s; }
+.history-trigger-btn:hover { border-color: #8ee2b8; color: #fff; }
+.history-count-badge { padding: 1px 6px; border-radius: 10px; background: #8ee2b8; color: #081016; font-size: 9px; font-weight: 800; }
+.export-trigger-btn { margin-left: auto; padding: 6px 10px; border: 1px solid #364855; border-radius: 6px; background: #141f28; color: #a4ebc7; font-size: 10px; font-weight: 700; white-space: nowrap; transition: background .15s; }
+.export-trigger-btn:hover { background: #1b2935; border-color: #a4ebc7; }
+.drawer-overlay, .modal-overlay { position: fixed; inset: 0; background: #00000088; backdrop-filter: blur(4px); z-index: 100; display: flex; justify-content: flex-end; }
+.drawer-panel { width: min(420px, 92vw); height: 100%; background: #0c131a; border-left: 1px solid #233442; display: flex; flex-direction: column; box-shadow: -10px 0 30px #00000066; }
+.drawer-header { padding: 22px; border-bottom: 1px solid #1c2a36; display: flex; justify-content: space-between; align-items: flex-start; }
+.drawer-header h3 { margin: 0; font-size: 16px; color: #e7eff6; }
+.drawer-subtitle { font-size: 11px; color: #788a99; }
+.drawer-close { background: none; border: none; color: #8899a6; font-size: 16px; padding: 4px; }
+.drawer-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.drawer-empty { text-align: center; padding: 48px 0; color: #728494; font-size: 12px; }
+.drawer-empty span { font-size: 28px; display: block; margin-bottom: 8px; }
+.drawer-list { display: flex; flex-direction: column; gap: 10px; }
+.history-item { padding: 12px; border: 1px solid #20313f; border-radius: 9px; background: #0e1720; cursor: pointer; transition: all .15s ease; display: flex; flex-direction: column; gap: 8px; }
+.history-item:hover { border-color: #8ee2b8; background: #101c26; }
+.history-item-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.history-filename { font-size: 12px; color: #dce5ed; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.history-risk-tag { font-size: 9px; font-weight: 750; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+.tag-danger { background: #450a0a; color: #fca5a5; border: 1px solid #991b1b; }
+.tag-safe { background: #052e16; color: #86efac; border: 1px solid #166534; }
+.history-item-bottom { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #6e8090; }
+.history-delete-btn { background: none; border: none; color: #9aa7b4; font-size: 10px; padding: 2px 4px; border-radius: 4px; }
+.history-delete-btn:hover { color: #f87171; }
+.drawer-footer { padding: 16px 20px; border-top: 1px solid #1c2a36; }
+.clear-history-btn { width: 100%; padding: 8px; border: 1px solid #3f2020; border-radius: 7px; background: #200f0f; color: #fca5a5; font-size: 11px; font-weight: 700; }
+.clear-history-btn:hover { background: #321515; }
+.modal-overlay { justify-content: center; align-items: center; }
+.modal-card { width: min(580px, 92vw); max-height: 85vh; border: 1px solid #283a48; border-radius: 14px; background: #0d141b; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px #00000088; }
+.modal-header { padding: 20px; border-bottom: 1px solid #1c2a36; display: flex; justify-content: space-between; align-items: flex-start; }
+.modal-header h3 { margin: 0; font-size: 16px; color: #e7eff6; }
+.modal-subtitle { font-size: 11px; color: #788a99; }
+.modal-close { background: none; border: none; color: #8899a6; font-size: 16px; padding: 4px; }
+.modal-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.modal-description { font-size: 11px; color: #8fa0af; margin: 0; line-height: 1.5; }
+.export-preview { margin: 0; max-height: 240px; overflow: auto; padding: 12px; border-radius: 8px; background: #060a0e; border: 1px solid #1c2a36; color: #a4ebc7; font-size: 10px; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
+.modal-footer { padding: 16px 20px; border-top: 1px solid #1c2a36; display: flex; justify-content: flex-end; gap: 10px; }
+.copy-btn { padding: 9px 15px; border: 1px solid #314452; border-radius: 7px; background: #15222d; color: #dbe4ec; font-size: 11px; font-weight: 700; }
+.copy-btn:hover { border-color: #8ee2b8; }
+.download-btn { padding: 9px 16px; border: 0; border-radius: 7px; background: #8ee2b8; color: #081016; font-size: 11px; font-weight: 750; }
+.download-btn:hover { background: #b0f5d5; }
 @media (max-width: 850px) { .analysis-shell { padding: 0 5%; }.workspace { grid-template-columns: 1fr; }.hero { padding: 52px 0 36px; }.result-card { min-height: 420px; } }
 @media (max-width: 520px) { .topbar { height: 68px; }.topbar-note { font-size: 10px; }.upload-card, .result-card { padding: 19px; }.card-heading h2 { font-size: 18px; }.upload-footer { align-items: stretch; flex-direction: column; }.analyze-button { width: 100%; }.file-type { font-size: 8px; }.dropzone-selected { flex-wrap: wrap; }.change-file { margin-left: 0; }.page-footer { font-size: 8px; } }
+
