@@ -20,6 +20,9 @@ def test_request_audit_middleware_headers():
     assert response.headers["X-Request-ID"].startswith("req_")
     assert "X-Process-Time-Ms" in response.headers
     assert float(response.headers["X-Process-Time-Ms"]) >= 0.0
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert "strict-origin" in response.headers["Referrer-Policy"]
 
 
 def test_custom_request_id_preserved():
