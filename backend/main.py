@@ -8,6 +8,7 @@ from api.v1.batch import router as batch_router
 from api.v1.health import router as health_router
 from api.v1.incidents import router as incidents_router
 from core.config import get_settings
+from core.middleware import RequestAuditMiddleware
 
 app = FastAPI(title="Deepfake Audio Detection API")
 
@@ -100,6 +101,7 @@ class _UploadTooLarge(Exception):
     """Internal signal used to stop reading an oversized request."""
 
 
+app.add_middleware(RequestAuditMiddleware)
 app.add_middleware(UploadSizeLimitMiddleware)
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(incidents_router, prefix="/api/v1")
