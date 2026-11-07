@@ -4,15 +4,20 @@ import React from "react";
 
 interface NavbarProps {
   statusText?: string;
+  isBackendOnline?: boolean;
   historyCount?: number;
   onOpenHistory?: () => void;
 }
 
 export default function Navbar({
-  statusText = "Audio integrity analysis",
+  statusText,
+  isBackendOnline = true,
   historyCount = 0,
   onOpenHistory,
 }: NavbarProps) {
+  const displayStatus =
+    statusText || (isBackendOnline ? "Forensic Engine Active" : "Engine Offline / Connecting");
+
   return (
     <header className="topbar">
       <a className="brand" href="/" aria-label="VoxShield home">
@@ -31,8 +36,19 @@ export default function Navbar({
           <span>Audit History</span>
           {historyCount > 0 && <span className="history-count-badge">{historyCount}</span>}
         </button>
-        <span className="topbar-note">
-          <span className="status-dot" /> {statusText}
+        <span
+          className="topbar-note"
+          title={isBackendOnline ? "Backend API reachable" : "Unable to connect to backend API"}
+          aria-live="polite"
+        >
+          <span
+            className={`status-dot ${isBackendOnline ? "status-dot-online" : "status-dot-offline"}`}
+            style={{
+              backgroundColor: isBackendOnline ? "#83dfb4" : "#f87171",
+              boxShadow: isBackendOnline ? "0 0 12px #83dfb455" : "0 0 12px #f8717155",
+            }}
+          />{" "}
+          {displayStatus}
         </span>
       </div>
     </header>

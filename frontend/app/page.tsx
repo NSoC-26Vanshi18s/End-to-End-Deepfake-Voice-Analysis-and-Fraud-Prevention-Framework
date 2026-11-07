@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, DragEvent, FormEvent, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, FormEvent, useEffect, useRef, useState } from "react";
 import AnalysisReportCard from "../components/AnalysisReportCard";
 import AudioPlayer from "../components/AudioPlayer";
 import Navbar from "../components/Navbar";
@@ -54,7 +54,30 @@ export default function Home() {
   // History & Export States
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isBackendOnline, setIsBackendOnline] = useState<boolean>(true);
   const { history, saveItem, removeItem, clearHistory } = useScanHistory();
+
+  useEffect(() => {
+    let isMounted = true;
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/health`, { method: "GET" });
+        if (isMounted) {
+          setIsBackendOnline(res.ok);
+        }
+      } catch {
+        if (isMounted) {
+          setIsBackendOnline(false);
+        }
+      }
+    }
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   function selectFile(candidate?: File) {
     setError("");
@@ -168,6 +191,7 @@ export default function Home() {
     <main className="analysis-shell">
       <Navbar
         historyCount={history.length}
+        isBackendOnline={isBackendOnline}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
 
