@@ -7,7 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.v1.batch import router as batch_router
 from api.v1.health import router as health_router
 from api.v1.incidents import router as incidents_router
+from api.v1.segments import router as segments_router
 from core.config import get_settings
+from core.constants import (
+    RISK_LEVEL_HIGH,
+    RISK_LEVEL_LOW,
+    RISK_LEVEL_SUSPICIOUS,
+    RISK_THRESHOLD_HIGH,
+    RISK_THRESHOLD_LOW,
+)
 from core.middleware import RequestAuditMiddleware
 
 app = FastAPI(title="Deepfake Audio Detection API")
@@ -40,7 +48,7 @@ class UploadSizeLimitMiddleware:
         if (
             scope["type"] != "http"
             or scope.get("method") != "POST"
-            or scope.get("path") != "/api/v1/analyze"
+            or scope.get("path") not in {"/api/v1/analyze", "/api/v1/analyze/timeline"}
         ):
             await self.app(scope, receive, send)
             return
@@ -106,6 +114,7 @@ app.add_middleware(UploadSizeLimitMiddleware)
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(incidents_router, prefix="/api/v1")
 app.include_router(batch_router, prefix="/api/v1")
+app.include_router(segments_router, prefix="/api/v1")
 
 
 import sys
@@ -122,6 +131,7 @@ try:
     from services.detector import detect_synthetic_voice
     from services.feature_extractor import extract_acoustic_features
     from services.fraud_engine import evaluate_fraud_risk
+    from services.segment_analyzer import analyze_temporal_segments
 except ImportError:
     from backend.schemas.detection import AnalysisResponse
     from backend.core.security import compute_sha256
@@ -130,6 +140,7 @@ except ImportError:
     from backend.services.detector import detect_synthetic_voice
     from backend.services.feature_extractor import extract_acoustic_features
     from backend.services.fraud_engine import evaluate_fraud_risk
+    from backend.services.segment_analyzer import analyze_temporal_segments
 
 
 @app.get("/")
@@ -178,12 +189,33 @@ async def analyze_audio(file: UploadFile = File(...)):
         spectral_flatness=features.spectral_flatness,
     )
 
-    # 4. Compute cryptographic SHA-256 fingerprint
-    sha256_hash = compute_sha256(contents)
+    # 4. Run sliding-window temporal segment & splice localization
+    timeline = analyze_temporal_segments(audio=audio, sample_rate=sample_rate)
+
+    effective_fake_prob = detection.fake_probability
+    effective_risk_level = detection.risk_level
+    indicators = list(detection.indicators)
+
+    if timeline.splicing_detected and timeline.anomalous_segments > 0:
+        blended = round(0.6 * timeline.peak_fake_probability + 0.4 * detection.fake_probability, 3)
+        if blended > effective_fake_prob:
+            effective_fake_prob = blended
+            if effective_fake_prob < RISK_THRESHOLD_LOW:
+                effective_risk_level = RISK_LEVEL_LOW
+            elif effective_fake_prob < RISK_THRESHOLD_HIGH:
+                effective_risk_level = RISK_LEVEL_SUSPICIOUS
+            else:
+                effective_risk_level = RISK_LEVEL_HIGH
+
+        splice_str = ", ".join(f"{ts:.2f}s" for ts in timeline.splice_timestamps[:3])
+        indicators.append(
+            f"Partial spoof alert: acoustic splice transition detected near {splice_str} "
+            f"(peak segment synthetic probability: {timeline.peak_fake_probability * 100:.1f}%)"
+        )
 
     # 5. Run fraud prevention risk evaluation
     fraud_report = evaluate_fraud_risk(
-        fake_probability=detection.fake_probability,
+        fake_probability=effective_fake_prob,
         sha256_hash=sha256_hash,
         duration_seconds=features.duration_seconds,
     )
@@ -192,7 +224,7 @@ async def analyze_audio(file: UploadFile = File(...)):
     incident = log_fraud_incident(
         filename=filename,
         sha256_hash=sha256_hash,
-        fake_probability=detection.fake_probability,
+        fake_probability=effective_fake_prob,
         threat_category=fraud_report.threat_category,
         requires_human_escalation=fraud_report.requires_human_escalation,
     )
@@ -200,15 +232,16 @@ async def analyze_audio(file: UploadFile = File(...)):
     return AnalysisResponse(
         filename=filename,
         status="completed",
-        fake_probability=detection.fake_probability,
+        fake_probability=effective_fake_prob,
         confidence_score=detection.confidence_score,
-        risk_level=detection.risk_level,
-        indicators=detection.indicators,
+        risk_level=effective_risk_level,
+        indicators=indicators,
         breakdown=detection.breakdown,
         features=features,
         fraud_prevention=fraud_report,
         incident_id=incident.incident_id,
         sha256_hash=sha256_hash,
+        timeline=timeline,
     )
 
 

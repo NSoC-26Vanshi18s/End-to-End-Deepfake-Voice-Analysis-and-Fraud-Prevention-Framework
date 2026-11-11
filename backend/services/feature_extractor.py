@@ -1,12 +1,82 @@
 import numpy as np
 from scipy import signal
+from scipy.fft import dct
 
 try:
+    from core.constants import NUM_MEL_BANDS, NUM_MFCC_COEFFICIENTS
     from schemas.audio import AcousticFeatures
     from services.audio_enhancer import estimate_snr_db
 except ImportError:
+    from backend.core.constants import NUM_MEL_BANDS, NUM_MFCC_COEFFICIENTS
     from backend.schemas.audio import AcousticFeatures
     from backend.services.audio_enhancer import estimate_snr_db
+
+
+def _build_mel_filterbank(sample_rate: int, n_fft: int, n_mels: int) -> np.ndarray:
+    """Constructs a triangular Mel-scale filterbank matrix of shape (n_mels, n_fft // 2 + 1)."""
+    n_bins = n_fft // 2 + 1
+    high_mel = 2595.0 * np.log10(1.0 + (sample_rate / 2.0) / 700.0)
+    mel_points = np.linspace(0.0, high_mel, n_mels + 2)
+    hz_points = 700.0 * (10.0 ** (mel_points / 2595.0) - 1.0)
+    bin_points = np.clip(np.floor((n_fft + 1) * hz_points / sample_rate).astype(int), 0, n_bins - 1)
+
+    filterbank = np.zeros((n_mels, n_bins), dtype=np.float32)
+    for m in range(1, n_mels + 1):
+        left, center, right = bin_points[m - 1], bin_points[m], bin_points[m + 1]
+        if center > left:
+            for k in range(left, center):
+                filterbank[m - 1, k] = (k - left) / float(center - left)
+        if right > center:
+            for k in range(center, right):
+                filterbank[m - 1, k] = (right - k) / float(right - center)
+        if left == center == right:
+            filterbank[m - 1, center] = 1.0
+    return filterbank
+
+
+def extract_mfcc_features(
+    audio: np.ndarray,
+    sample_rate: int,
+    num_ceps: int = NUM_MFCC_COEFFICIENTS,
+    n_mels: int = NUM_MEL_BANDS,
+) -> tuple[list[float], float]:
+    """
+    Extracts mean Mel-Frequency Cepstral Coefficients (MFCCs) and cepstral flux
+    (inter-frame L2 delta) from mono audio using Mel filterbanks and DCT-II.
+    """
+    if len(audio) < 32 or sample_rate <= 0:
+        return [0.0] * num_ceps, 0.0
+
+    emphasized = np.append(audio[0], audio[1:] - 0.97 * audio[:-1])
+    nperseg = min(512, len(emphasized))
+    noverlap = nperseg // 2
+
+    _, _, zxx = signal.stft(
+        emphasized,
+        fs=sample_rate,
+        nperseg=nperseg,
+        noverlap=noverlap,
+        boundary=None,
+    )
+
+    if zxx.shape[1] == 0:
+        return [0.0] * num_ceps, 0.0
+
+    power_spec = (np.abs(zxx) ** 2) / float(nperseg)
+    filterbank = _build_mel_filterbank(sample_rate, nperseg, n_mels)
+    mel_energies = np.maximum(filterbank @ power_spec, 1e-10)
+    log_mel = np.log(mel_energies)
+
+    mfccs = dct(log_mel, type=2, axis=0, norm="ortho")[:num_ceps, :]
+    mfcc_means = [round(float(val), 4) for val in np.mean(mfccs, axis=1)]
+
+    if mfccs.shape[1] >= 2:
+        deltas = np.diff(mfccs, axis=1)
+        cepstral_flux = round(float(np.mean(np.linalg.norm(deltas, axis=0))), 4)
+    else:
+        cepstral_flux = 0.0
+
+    return mfcc_means, cepstral_flux
 
 
 def extract_acoustic_features(audio: np.ndarray, sample_rate: int, channels: int = 1) -> AcousticFeatures:
@@ -54,6 +124,7 @@ def extract_acoustic_features(audio: np.ndarray, sample_rate: int, channels: int
     f0_mean, jitter, shimmer = _estimate_pitch_and_perturbation(audio, sample_rate)
 
     snr_db = estimate_snr_db(audio, sample_rate)
+    mfcc_means, cepstral_flux = extract_mfcc_features(audio, sample_rate)
 
     return AcousticFeatures(
         sample_rate=sample_rate,
@@ -68,6 +139,8 @@ def extract_acoustic_features(audio: np.ndarray, sample_rate: int, channels: int
         pitch_jitter=round(jitter, 4) if jitter is not None else None,
         shimmer=round(shimmer, 4) if shimmer is not None else None,
         snr_db=round(snr_db, 1),
+        mfcc_means=mfcc_means,
+        cepstral_flux=cepstral_flux,
     )
 
 
