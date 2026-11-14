@@ -15,6 +15,8 @@ class AcousticFeatures(BaseModel):
     pitch_jitter: Optional[float] = Field(None, description="Cycle-to-cycle pitch period variation")
     shimmer: Optional[float] = Field(None, description="Cycle-to-cycle amplitude perturbation")
     snr_db: Optional[float] = Field(None, description="Estimated Signal-to-Noise Ratio (SNR) in decibels")
+    mfcc_means: Optional[list[float]] = Field(None, description="Mean Mel-Frequency Cepstral Coefficients across frames")
+    cepstral_flux: Optional[float] = Field(None, description="Mean frame-to-frame L2 delta of MFCC trajectories")
 
 
 class AudioFormatMetadata(BaseModel):

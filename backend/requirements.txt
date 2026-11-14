@@ -2,5 +2,7 @@ fastapi
 uvicorn
 pymongo
 python-multipart
+numpy
+scipy
 pytest
 httpx
